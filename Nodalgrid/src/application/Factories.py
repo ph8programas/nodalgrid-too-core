@@ -22,12 +22,12 @@ class FabricaEventos:
     @staticmethod
     def criar_transferencia(origem: EntidadeLogistica, destino: EntidadeLogistica, lote: LoteAgro):
         """Cria um evento de transferência entre entidades."""
-        return EventoTransferencia(origem, destino, lote)
+        return EventoTransferencia(origem, lote, destino)
 
     @staticmethod
-    def criar_armazenamento(lote: LoteAgro, id_recipiente: str):
+    def criar_armazenamento(entidade: EntidadeLogistica, lote: LoteAgro, id_recipiente: str):
         """Cria um evento de armazenamento de lotes."""
-        return EventoArmazenamento(id_recipiente, lote)
+        return EventoArmazenamento(entidade, lote, id_recipiente)
 
     @staticmethod
     def criar_fracionamento(entidade: EntidadeLogistica, original: LoteAgro, extraido: LoteAgro, qtd: float):

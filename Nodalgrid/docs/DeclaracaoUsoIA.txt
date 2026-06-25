@@ -1,0 +1,32 @@
+# Declaração de Uso de Inteligência Artificial (IA)
+
+Este documento, gerado com base no histórico de conversação do usuário e o agente sobre o projeto, declara formalmente o papel e a extensão do uso de ferramentas de Inteligência Artificial Generativa (IA) no desenvolvimento do ecossistema **Nodalgrid**. Esta declaração visa garantir a transparência acadêmica, a integridade do código e o respeito aos princípios de autoria exigidos para a apresentação do projeto.
+
+## 1. Escopo de Atuação da IA
+
+O uso de modelos de linguagem (LLMs) durante o projeto atuou estritamente como um **mecanismo de co-piloto arquitetural e revisão de código**, sendo delimitado pelas seguintes atividades:
+
+* **Refatoração e Padrões de Projeto:** Auxílio na transição de um modelo acoplado acíclico para uma Arquitetura Orientada a Eventos (EDA) baseada no padrão *Observer* (Listeners), garantindo a quebra de dependências circulares entre a camada de negócio e infraestrutura.
+* **Ajuste de Tipagem e Assinaturas:** Correção de inconsistências de polimorfismo e herança múltipla (Mixins) em Python, especificamente na adequação de contratos abstratos (`executar_acao()`) e prevenção de erros em tempo de execução (*RecursionError*).
+* **Evolução da Estrutura de Dados:** Discussão conceitual e suporte na modelagem lógica da Blockchain linear para uma topologia de Grafo Direcionado Acíclico (DAG) para suportar o rastreamento genealógico de balanço de massa (mistura de lotes em silos).
+* **Geração de Documentação Teórica:** Suporte na formatação estruturada de diagramas de classes baseados na sintaxe *Mermaid UML*.
+
+## 2. Ferramentas Utilizadas
+
+* **Modelo de Linguagem:** Gemini (Google).
+* **Função Principal:** Revisão por pares de trechos de código de baixo acoplamento e validação de conformidade com os princípios SOLID.
+* **Histórico da Conversa:** https://gemini.google.com/share/b689bd073bd2
+## 3. Retenção de Autoria e Responsabilidade Humana
+
+O uso de IA neste projeto **não substituiu** o esforço intelectual, a tomada de decisão ou a autoria do desenvolvedor. Fica determinado que:
+
+1.  **Lógica de Domínio:** Toda a lógica de negócio voltada à rastreabilidade de commodities e conformidade com o regulamento europeu de desmatamento (**EUDR**) foi idealizada, estruturada e validada manualmente pelo autor.
+2.  **Decisão Arquitetural:** A escolha de manter a classe `Blockchain` como um gerenciador de estado global em memória e a fiação de dependências através do *Composition Root* no `main.py` foram decisões estritas do autor, após análise das problemáticas levantadas.
+3.  **Depuração e Testes:** A identificação de erros de contexto de execução (*ModuleNotFoundError* via `sys.path`) e testes práticos em ambiente local foram executados de forma manual pelo autor.
+
+## 4. Compromisso com a Integridade Cósmica e Acadêmica
+
+O autor assume total responsabilidade técnica e jurídica pelo código final apresentado no repositório `nodalgrid-too-core`. As ferramentas de IA foram aplicadas exclusivamente para aumentar a eficiência de desenvolvimento e a robustez sintática do software, garantindo que a engenharia de software subjacente reflita o aprendizado prático da disciplina de Programação Orientada a Objetos (POO).
+
+---
+**Passo Fundo, RS, Brasil, 2026.**

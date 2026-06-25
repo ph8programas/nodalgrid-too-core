@@ -1,0 +1,355 @@
+Diagrama de Classes UML - Sistema Nodalgrid
+
+Este documento contém a especificação UML da arquitetura atualizada do projeto, refletindo o modelo de Grafo Direcionado Acíclico (DAG) para controle de misturas de commodities, desacoplamento via padrão Observer (Listeners) e herança múltipla de produtos e recipientes.
+
+classDiagram
+    %% =====================================================================
+    %% INFRAESTRUTURA BLOCKCHAIN & LISTENERS
+    %% =====================================================================
+    class Blockchain {
+        +Bloco ultimo
+        +int tamanho
+        +dict estado_lotes
+        +adicionar_bloco(evento: EventoLogistico, ids_lotes_origem: List~str~) Void
+        +rastrear_lote(id_lote: str) List~Dict~
+        +validar_integridade_cadeia() bool
+        +percorrer_historico(exibir_console: bool) List~Dict~
+    }
+
+    class Bloco {
+        +EventoLogistico conteudo
+        +Bloco bloco_anterior
+        +string hash_anterior
+        +List~Bloco~ blocos_origem
+        +List~string~ hashes_origem
+        +string timestamp_bloco
+        +string hash_atual
+        -_calcular_hash() string
+    }
+
+    class ComplianceListener {
+        +Blockchain blockchain
+        +on_evento_logistico(entidade: EntidadeLogistica, acao: str, **kwargs) Void
+    }
+
+    class FabricaEventos {
+        <<static>>
+        +criar_lote(entidade, lote) EventoColheita
+        +criar_transferencia(origem, destino, lote) EventoTransferencia
+        +criar_armazenamento(entidade, lote, id_recipiente) EventoArmazenamento
+        +criar_fracionamento(entidade, original, extraido, qtd) EventoFracionamento
+        +criar_processamento(entidade, lote) EventoProcessamento
+        +criar_finalizacao(entidade, lote) EventoFinalizacao
+    }
+
+    %% Relacionamentos Criptográficos
+    Blockchain "1" o-- "0..*" Bloco : gerencia >
+    Bloco "1" o-- "0..1" Bloco : bloco_anterior
+    Bloco "1" o-- "0..*" Bloco : blocos_origem (DAG)
+    ComplianceListener --> Blockchain : atualiza >
+    ComplianceListener --> FabricaEventos : utiliza >
+
+    %% =====================================================================
+    %% ENTIDADES LOGÍSTICAS (DOMÍNIO ATIVO)
+    %% =====================================================================
+    class EntidadeLogistica {
+        <<abstract>>
+        +UUID id_entidade
+        +string nome_razao_social
+        +string documento_cnpj_cpf
+        +string coordenadas_gps
+        #List~Silo~ _silos_proprios
+        #List~Armazem~ _armazens_proprios
+        #List~CaminhaoContinuo~ _caminhoes_graneleiros
+        #List~CaminhaoDiscreto~ _caminhoes_discretos
+        #List _listeners
+        +registrar_listener(listener) Void
+        +notificar_listeners(acao: str, **kwargs) Void
+        +assinar_bloco_blockchain() string
+        +armazenar_em_silo(id_silo: str, lote: LoteAgro) Void
+        +obter_papel_rede()* string
+    }
+
+    class EntidadeCriadora {
+        <<abstract>>
+        +gerar_lote(classe_produto, peso_kg: float)* LoteAgro
+    }
+
+    class EntidadeIntermediaria {
+        <<abstract>>
+        +receber_carga(lote, index_silo: int)* Void
+        +transferir_carga(lote, destino)* Void
+    }
+
+    class EntidadeTransformadora {
+        <<abstract>>
+        +processar_lote(lote)* Any
+        +receber_carga(lote, index_silo: int)* Void
+        +transferir_carga(lote, destino)* Void
+    }
+
+    class EntidadeFinalizadora {
+        <<abstract>>
+        +finalizar_lote(lote)* Void
+    }
+
+    class Fazenda {
+        +string car_registro
+        +colher(classe_produto, peso_kg: float) LoteAgro
+        +gerar_lote(classe_produto, peso_kg: float) LoteAgro
+        +obter_papel_rede() string
+    }
+
+    class Cooperativa {
+        +obter_papel_rede() string
+        +receber_carga(lote, index_silo: int) Void
+        +transferir_carga(lote, destino) Void
+    }
+
+    class Transportadora {
+        +obter_papel_rede() string
+        +receber_carga(lote, index_silo: int) Void
+        +transferir_carga(lote, destino) Void
+    }
+
+    class NodoAduaneiro {
+        +TipoModal modal
+        +obter_papel_rede() string
+        +emitir_certificado_eudr(lote: LoteAgro) bool
+        +finalizar_lote(lote: LoteAgro) Void
+    }
+
+    class MercadoInterno {
+        +obter_papel_rede() string
+        +finalizar_lote(lote: LoteAgro) Void
+    }
+
+    %% Relacionamentos de Entidades
+    EntidadeLogistica <|-- EntidadeCriadora
+    EntidadeLogistica <|-- EntidadeIntermediaria
+    EntidadeLogistica <|-- EntidadeTransformadora
+    EntidadeLogistica <|-- EntidadeFinalizadora
+
+    EntidadeCriadora <|-- Fazenda
+    EntidadeIntermediaria <|-- Cooperativa
+    EntidadeIntermediaria <|-- Transportadora
+    EntidadeFinalizadora <|-- NodoAduaneiro
+    EntidadeFinalizadora <|-- MercadoInterno
+
+    EntidadeLogistica "1" o-- "0..*" ComplianceListener : notifica >
+
+    %% =====================================================================
+    %% PRODUTOS E ATIVOS (DOMÍNIO PASSIVO)
+    %% =====================================================================
+    class LoteAgro {
+        <<abstract>>
+        +UUID id_lote
+        +string proprietario_atual
+        +bool selo_procedencia
+        +mostrar_detalhes()* dict
+        +obter_macro_categoria()* string
+        +invalidar_selo() Void
+    }
+
+    class ProdutoAgricola {
+        <<abstract>>
+        +string car_origem
+        +obter_macro_categoria() string
+        +mostrar_detalhes() dict
+    }
+
+    class ProdutoPecuario {
+        <<abstract>>
+        +string gta_origem
+        +obter_macro_categoria() string
+        +mostrar_detalhes() dict
+    }
+
+    class ProdutoFlorestal {
+        <<abstract>>
+        +string dof_origem
+        +obter_macro_categoria() string
+        +mostrar_detalhes() dict
+    }
+
+    class ComportamentoGranel {
+        <<mixin>>
+        +float peso_atual
+        +inicializar_granel(peso_inicial: float) Void
+        +fracionar(peso_extraido: float, novo_proprietario: str) tuple
+    }
+
+    class ComportamentoDiscreto {
+        <<mixin>>
+        +dict unidades
+        +int quantidade_unidades
+        +inicializar_discreto(dicionario_unidades: dict) Void
+        +desmembrar_lote(chaves_selecionadas: List~str~, novo_proprietario: str) tuple
+    }
+
+    class LoteSoja {
+        +fracionar(peso_extraido: float, novo_proprietario: str) LoteSoja
+        +mostrar_detalhes() dict
+    }
+
+    class LoteGado {
+        +desmembrar_lote(brincos_selecionados: List~str~, novo_proprietario: str) LoteGado
+        +mostrar_detalhes() dict
+    }
+
+    class LoteMadeira {
+        +desmembrar_lote(plaquetas_selecionadas: List~str~, novo_proprietario: str) LoteMadeira
+        +mostrar_detalhes() dict
+    }
+
+    %% Relacionamentos de Lotes
+    LoteAgro <|-- ProdutoAgricola
+    LoteAgro <|-- ProdutoPecuario
+    LoteAgro <|-- ProdutoFlorestal
+
+    ProdutoAgricola <|-- LoteSoja
+    ComportamentoGranel <|-- LoteSoja
+
+    ProdutoPecuario <|-- LoteGado
+    ComportamentoDiscreto <|-- LoteGado
+
+    ProdutoFlorestal <|-- LoteMadeira
+    ComportamentoDiscreto <|-- LoteMadeira
+
+    %% =====================================================================
+    %% RECIPIENTES E VEÍCULOS (INFRAESTRUTURA FÍSICA)
+    %% =====================================================================
+    class RecipienteFisico {
+        <<abstract>>
+        +string id_recipiente
+        +float capacidade_maxima
+        +float ocupacao_atual
+        +exibir_status()* dict
+    }
+
+    class RecipienteMovel {
+        <<abstract>>
+    }
+
+    class RecipienteEstacionario {
+        <<abstract>>
+    }
+
+    class ArmazenamentoContinuo {
+        <<mixin>>
+        +historico_lotes : List~UUID~
+        +armazenar(lote_granel) Void
+    }
+
+    class CarregamentoContinuo {
+        <<mixin>>
+        +carregar(lote_origem, peso_a_movimentar: float) LoteAgro
+        +descarregar(lote_contido, peso_a_remover: float, entidade_destino) Void
+    }
+
+    class ArmazenamentoDiscreto {
+        <<mixin>>
+        +lotes_armazenados : List~UUID~
+        +armazenar(lote_discreto) Void
+    }
+
+    class CarregamentoDiscreto {
+        <<mixin>>
+        +carregar(lote_origem, ids_unidades: list) LoteAgro
+        +descarregar(lote_contido, ids_unidades: list, entidade_destino) Void
+    }
+
+    class Silo {
+        +exibir_status() dict
+    }
+
+    class Armazem {
+        +exibir_status() dict
+    }
+
+    class CaminhaoContinuo {
+        +exibir_status() dict
+    }
+
+    class CaminhaoDiscreto {
+        +exibir_status() dict
+    }
+
+    %% Relacionamentos de Recipientes
+    RecipienteFisico <|-- RecipienteMovel
+    RecipienteFisico <|-- RecipienteEstacionario
+
+    RecipienteEstacionario <|-- Silo
+    CarregamentoContinuo <|-- Silo
+    ArmazenamentoContinuo <|-- Silo
+
+    RecipienteEstacionario <|-- Armazem
+    CarregamentoDiscreto <|-- Armazem
+    ArmazenamentoDiscreto <|-- Armazem
+
+    RecipienteMovel <|-- CaminhaoContinuo
+    CarregamentoContinuo <|-- CaminhaoContinuo
+
+    RecipienteMovel <|-- CaminhaoDiscreto
+    CarregamentoDiscreto <|-- CaminhaoDiscreto
+
+    %% Agregações de infraestrutura nas entidades
+    EntidadeLogistica *-- Silo : possui _silos_proprios
+    EntidadeLogistica *-- Armazem : possui _armazens_proprios
+    EntidadeLogistica *-- CaminhaoContinuo : possui _caminhoes_graneleiros
+    EntidadeLogistica *-- CaminhaoDiscreto : possui _caminhoes_discretos
+
+    %% =====================================================================
+    %% EVENTOS LOGÍSTICOS & MOTOR DE RISCOS
+    %% =====================================================================
+    class EventoLogistico {
+        <<abstract>>
+        +UUID id_evento
+        +string timestamp
+        +EntidadeLogistica entidade_responsavel
+        +LoteAgro lote_envolvido
+        +bool selo_procedencia
+        +ValidadorRisco validador
+        +validar_regras()* bool
+        +executar_acao()* Void
+        +resumir_evento() dict
+        +exibir_resumo() Void
+    }
+
+    class EventoColheita {
+        +validar_regras() bool
+        +executar_acao() Void
+    }
+
+    class EventoArmazenamento {
+        +string id_recipiente
+        +validar_regras() bool
+        +executar_acao() Void
+    }
+
+    class EventoTransferencia {
+        +EntidadeLogistica destino
+        +validar_regras() bool
+        +executar_acao() Void
+    }
+
+    class EventoFinalizacao {
+        +validar_regras() bool
+        +executar_acao() Void
+    }
+
+    class ValidadorRisco {
+        -_MAPEAMENTO_RISCOS : dict
+        +validar(evento: EventoLogistico, tipo_risco: str, deve_falhar: bool, mensagem: str) bool
+    }
+
+    %% Relacionamentos de Eventos
+    EventoLogistico <|-- EventoColheita
+    EventoLogistico <|-- EventoArmazenamento
+    EventoLogistico <|-- EventoTransferencia
+    EventoLogistico <|-- EventoFinalizacao
+
+    EventoLogistico --> ValidadorRisco : usa para auditoria >
+    Bloco --> EventoLogistico : carrega payload >
+    EventoLogistico --> EntidadeLogistica : referencia >
+    EventoLogistico --> LoteAgro : audita >

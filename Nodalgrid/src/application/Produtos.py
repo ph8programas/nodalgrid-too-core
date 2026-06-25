@@ -36,10 +36,24 @@ class LoteAgro(ABC):
         self.selo_procedencia = True
 
     @abstractmethod
-    def mostrar_detalhes(self) -> dict: pass
+    def mostrar_detalhes(self) -> str: pass
 
     @abstractmethod
     def obter_macro_categoria(self) -> str: pass
+
+    def _formatar_detalhes(self, detalhes: dict) -> str:
+        linhas = [f"{self.__class__.__name__}", "-" * 40]
+        for chave, valor in detalhes.items():
+            if isinstance(valor, list):
+                linhas.append(f"{chave}:")
+                for item in valor:
+                    linhas.append(f"  - {item}")
+            else:
+                linhas.append(f"{chave}: {valor}")
+        return "\n".join(linhas)
+
+    def __str__(self) -> str:
+        return self.mostrar_detalhes()
 
     def invalidar_selo(self) -> None:
         self.selo_procedencia = False
@@ -53,14 +67,15 @@ class ProdutoAgricola(LoteAgro, ABC):
     def obter_macro_categoria(self) -> str:
         return "PRODUTOS_AGRICOLAS"
     
-    def mostrar_detalhes(self) -> dict:
-        return {
+    def mostrar_detalhes(self) -> str:
+        detalhes = {
             "id_lote": str(self.id_lote),
             "categoria": self.obter_macro_categoria(),
             "proprietario": self.proprietario_atual,
             "car_fazenda": self.car_origem,
             "selo_procedencia": self.selo_procedencia
         }
+        return self._formatar_detalhes(detalhes)
 
 class ProdutoPecuario(LoteAgro, ABC):
     def __init__(self, proprietario_atual: str, gta_origem: str):
@@ -70,14 +85,15 @@ class ProdutoPecuario(LoteAgro, ABC):
     def obter_macro_categoria(self) -> str:
         return "PRODUTOS_PECUARIOS"
     
-    def mostrar_detalhes(self) -> dict:
-        return {
+    def mostrar_detalhes(self) -> str:
+        detalhes = {
             "id_lote": str(self.id_lote),
             "categoria": self.obter_macro_categoria(),
             "proprietario": self.proprietario_atual,
             "gta_origem": self.gta_origem,
             "selo_procedencia": self.selo_procedencia
         }
+        return self._formatar_detalhes(detalhes)
 
 class ProdutoFlorestal(LoteAgro, ABC):
     def __init__(self, proprietario_atual: str, dof_origem: str):
@@ -87,14 +103,15 @@ class ProdutoFlorestal(LoteAgro, ABC):
     def obter_macro_categoria(self) -> str:
         return "PRODUTOS_FLORESTAIS"
     
-    def mostrar_detalhes(self) -> dict:
-        return {
+    def mostrar_detalhes(self) -> str:
+        detalhes = {
             "id_lote": str(self.id_lote),
             "categoria": self.obter_macro_categoria(),
             "proprietario": self.proprietario_atual,
             "dof_origem": self.dof_origem,
             "selo_procedencia": self.selo_procedencia
         }
+        return self._formatar_detalhes(detalhes)
 
 
 # =====================================================================

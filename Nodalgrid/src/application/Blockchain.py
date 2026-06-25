@@ -11,14 +11,18 @@ class Bloco:
     O Nó da nossa lista encadeada reversa. 
         Uma vez instanciado, seus atributos jamais devem ser alterados.
         """
-    def __init__(self, evento: EventoLogistico, bloco_anterior: Optional['Bloco']):
-        # 1. Payload Logístico (O Domínio)
-        self.conteudo = evento
+    def __init__(self, evento: EventoLogistico, bloco_anterior: Optional['Bloco'], blocos_origem: List['Bloco']):        # 1. Payload Logístico (O Domínio)
+        self.evento = evento
         
         # 2. Ponteiro Reversivo (A Infraestrutura)
         self.bloco_anterior = bloco_anterior
         
-        # 3. Atributos Criptográficos
+        # 3. Ponteiros do Domínio (A Árvore Genealógica do Lote)
+        self.blocos_origem = blocos_origem
+        # Ordenar os hashes de origem é obrigatório para não gerar hashes diferentes se a lista mudar de ordem
+        self.hashes_origem = sorted([b.hash_atual for b in blocos_origem]) if blocos_origem else []
+        
+        # 4. Atributos Criptográficos
         self.hash_anterior = bloco_anterior.hash_atual if bloco_anterior else "0" * 64
         self.timestamp_bloco = datetime.now().isoformat()
         
@@ -31,8 +35,10 @@ class Bloco:
         """
         # Criamos um dicionário estrito para não incluir ponteiros de memória no hash
         dados_para_hash = {
-            "id_evento": str(self.conteudo.id_evento),
+            "id_evento": str(self.evento.id_evento),
+            "id_lote_principal": str(self.evento.lote_envolvido.id_lote),
             "hash_anterior": self.hash_anterior,
+            "hashes_origem": self.hashes_origem,
             "timestamp": self.timestamp_bloco
         }
         
@@ -43,14 +49,16 @@ class Bloco:
 
 class Blockchain:
     """
-    O Descritor da estrutura. Gerencia exclusivamente o estado atual (a ponta) da corrente.
+    Fachada para a lista encadeada reversa de blocos, com suporte a DAG para rastreabilidade de lotes.
     """
     def __init__(self):
         # A blockchain só conhece o bloco mais recente. O resto é descoberto navegando para trás.
         self.ultimo: Optional[Bloco] = None
         self.tamanho: int = 0
+        # Índice de acesso rápido O(1) para saber qual foi o último bloco que alterou um lote específico
+        self.estado_lotes: Dict[str, Bloco] = {}
 
-    def adicionar_bloco(self, evento: EventoLogistico) -> None:
+    def adicionar_bloco(self, evento: EventoLogistico, ids_lotes_origem: List[str] = None) -> None:
         """
         Acopla um novo evento à corrente se, e somente se, ele passar na auditoria do domínio.
         """
@@ -60,61 +68,116 @@ class Blockchain:
         # 1. Executa a ação de fato do evento
         evento.executar_acao()
 
-        # 2. Imortaliza o evento na corrente
-        novo_bloco = Bloco(evento, self.ultimo)
+        pais_do_lote = []
+        id_lote_atual = str(evento.lote_envolvido.id_lote)
+
+        # Se for um evento de mistura, busca os blocos das pontas dos lotes ancestrais
+        if ids_lotes_origem:
+            for l_id in ids_lotes_origem:
+                if l_id in self.estado_lotes:
+                    pais_do_lote.append(self.estado_lotes[l_id])
+        else:
+            # Fluxo linear ordinário do mesmo lote
+            if id_lote_atual in self.estado_lotes:
+                pais_do_lote.append(self.estado_lotes[id_lote_atual])
+
+        #  Injeção explícita de 'pais_do_lote' como o terceiro parâmetro obrigatório
+        novo_bloco = Bloco(evento, self.ultimo, pais_do_lote)
+        
+        # Atualiza os ponteiros do Ledger global
         self.ultimo = novo_bloco
         self.tamanho += 1
-        print(f"🔗 [BLOCKCHAIN] Bloco adicionado! Hash: {novo_bloco.hash_atual[:8]}...")
+        
+        # Atualiza o índice de estados para apontar a ponta do lote para este bloco recente
+        self.estado_lotes[id_lote_atual] = novo_bloco
+        print(f"🔗 [BLOCKCHAIN] Bloco {novo_bloco.hash_atual[:8]} adicionado! Lote: {id_lote_atual[:8]}")
+        
+    def rastrear_lote(self, id_lote: str) -> List[Dict]:
+        """Faz a busca em largura (BFS) no DAG para remontar a árvore do lote e de suas misturas."""
+        if id_lote not in self.estado_lotes:
+            return []
+            
+        historico = []
+        fila = [self.estado_lotes[id_lote]]
+        visitados = set()
 
-    def percorrer_historico(self) -> List[Dict]:
+        while fila:
+            bloco_atual = fila.pop(0)
+            
+            # Previne loops infinitos caso a estrutura tenha sido comprometida
+            if bloco_atual.hash_atual in visitados:
+                continue
+                
+            visitados.add(bloco_atual.hash_atual)
+            
+            historico.append({
+                "hash_bloco": bloco_atual.hash_atual,
+                "evento_tipo": bloco_atual.evento.__class__.__name__,
+                "id_lote": str(bloco_atual.evento.lote_envolvido.id_lote),
+                "timestamp": bloco_atual.timestamp_bloco
+            })
+            
+            # Adiciona os pais geológicos à fila de pesquisa
+            fila.extend(bloco_atual.blocos_origem)
+            
+        return historico        
+        
+    def percorrer_historico(self, exibir_console: bool = False) -> List[Dict]:
         """
-        Varre a blockchain de trás para frente e inverte o resultado para exibição cronológica (Dashboard).
+        Varre a blockchain de trás para frente e inverte o resultado para exibição cronológica (Dashboard),
+        incluindo os vínculos de genealogia física (hashes de origem).
         """
         historico_reverso = []
         bloco_atual = self.ultimo
         
-        # Navegação via ponteiro anterior O(n)
+        # Navegação via ponteiro anterior O(n) na cadeia linear global
         while bloco_atual is not None:
-            historico_reverso.append({
+            registro = {
                 "hash_bloco": bloco_atual.hash_atual,
-                "hash_anterior": bloco_atual.hash_anterior,
-                "evento_tipo": bloco_atual.conteudo.__class__.__name__,
-                "id_evento": str(bloco_atual.conteudo.id_evento),
+                "hash_anterior": bloco_anterior.hash_atual if (bloco_anterior := bloco_atual.bloco_anterior) else "0" * 64,
+                "evento_tipo": bloco_atual.evento.__class__.__name__,
+                "id_evento": str(bloco_atual.evento.id_evento),
+                "id_lote": str(bloco_atual.evento.lote_envolvido.id_lote),
                 "timestamp": bloco_atual.timestamp_bloco,
-                "selo_procedencia": bloco_atual.conteudo.selo_procedencia
-            })
+                "selo_procedencia": bloco_atual.evento.selo_procedencia,
+                # NOVO: Exporta a genealogia física do lote no dicionário do histórico
+                "hashes_origem": bloco_atual.hashes_origem
+            }
+            historico_reverso.append(registro)
             bloco_atual = bloco_atual.bloco_anterior
             
-        # Inverte a lista para retornar da Gênese até o momento atual
-        return historico_reverso[::-1]
+        historico = historico_reverso[::-1]
+
+        if exibir_console:
+            print("\n📜 [HISTÓRICO DA BLOCKCHAIN / LEDGER GLOBAL]")
+            for indice, bloco in enumerate(historico, start=1):
+                # Formata a exibição das origens físicas do grafo
+                origens_str = ", ".join([h[:8] for h in bloco['hashes_origem']]) if bloco['hashes_origem'] else "GÊNESE"
+                
+                print(
+                    f" {indice}. [{bloco['evento_tipo']}] | Evento ID: {bloco['id_evento'][:8]}... | Lote ID: {bloco['id_lote'][:8]}...\n"
+                    f"    Selo ESG: {bloco['selo_procedencia']} | Timestamp: {bloco['timestamp']}\n"
+                    f"    Ancestrais Físicos (Misturas): {origens_str}\n"
+                    f"    Hash Bloco: {bloco['hash_bloco']}\n"
+                    f"    Hash Anterior Global: {bloco['hash_anterior']}"
+                )
+                if indice != len(historico):
+                    print("    " + "-" * 72)
+
+        return historico
 
     def validar_integridade_cadeia(self) -> bool:
-        """
-        O coração do compliance: Recalcula todos os hashes do passado para o presente
-        para garantir que nenhum objeto foi adulterado na memória RAM.
-        """
         bloco_atual = self.ultimo
-        
         while bloco_atual is not None:
-            # 1. Verifica se o hash salvo bate com o cálculo matemático atual
             if bloco_atual.hash_atual != bloco_atual._calcular_hash():
                 return False
-            
-            # 2. Verifica se a ligação com o passado foi corrompida
             if bloco_atual.bloco_anterior is not None:
                 if bloco_atual.hash_anterior != bloco_atual.bloco_anterior.hash_atual:
                     return False
-                    
             bloco_atual = bloco_atual.bloco_anterior
-            
         return True
     
 class ComplianceListener:
-    ##class TipoEventos(Enum):
-    ##  COLHEITA = "COLHEITA"
-    ##  TRANSFERENCIA = "TRANSFERENCIA"
-    ##  FINALIZACAO = "FINALIZACAO"
-        
     """Ouvinte que escuta as Entidades e dispara os Eventos Logísticos."""
     def __init__(self, blockchain: Blockchain):
         self.blockchain = blockchain
@@ -129,14 +192,14 @@ class ComplianceListener:
                 if acao == "COLHEITA":
                     evento = FabricaEventos.criar_lote(entidade, lote)
                     self.blockchain.adicionar_bloco(evento)
-                elif acao == "ARMAZENAMENTO":
+                elif acao == "ARMAZENAMENTO_MISTURA":
                     id_silo = kwargs.get("id_silo")
-                    evento = FabricaEventos.criar_armazenamento(lote, id_silo)
-                    self.blockchain.adicionar_bloco(evento)
-                    
+                    lotes_misturados = kwargs.get("ids_lotes_origem")
+                    evento = FabricaEventos.criar_armazenamento(entidade, lote, id_silo)
+                    self.blockchain.adicionar_bloco(evento, ids_lotes_origem=lotes_misturados)                    
                 elif acao == "TRANSFERENCIA":
                     destino = kwargs.get("destino")
-                    evento = FabricaEventos.criar_transferencia(entidade, destino, lote)
+                    evento = FabricaEventos.criar_transferencia(entidade, lote, destino)
                     self.blockchain.adicionar_bloco(evento)
                 
                 elif acao == "FRACIONAMENTO":

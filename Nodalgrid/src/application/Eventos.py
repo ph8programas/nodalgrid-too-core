@@ -62,37 +62,47 @@ class EventoColheita(EventoLogistico):
         print(f"Evento de Colheita registrado para o lote {self.lote_envolvido.id_lote}.")
     
 class EventoArmazenamento(EventoLogistico):
+    # Recebe os dados específicos no construtor
+    def __init__(self, entidade_responsavel, lote_envolvido, id_recipiente: str):
+        super().__init__(entidade_responsavel, lote_envolvido)
+        self.id_recipiente = id_recipiente
+
     def validar_regras(self) -> bool:
-        """Valida os riscos logísticos para o armazenamento do lote."""
         self.validador.validar(self, "logistico", deve_falhar=False)
         return True
 
-    def executar_acao(self, id_recipiente: str) -> None:
-        """Armazena o lote em um recipiente específico da entidade logística."""
-        pass
-    
+    def executar_acao(self) -> None:
+        # Apenas executa, sem pedir parâmetros
+        print(f"Evento de Armazenamento registrado no silo {self.id_recipiente}.")
     
 
 class EventoTransferencia(EventoLogistico):
+    def __init__(self, entidade_responsavel, lote_envolvido, destino: EntidadeLogistica):
+        super().__init__(entidade_responsavel, lote_envolvido)
+        self.destino = destino
+
     def validar_regras(self) -> bool:
-        """Valida os riscos logísticos para a transferência de custódia."""
         self.validador.validar(self, "logistico", deve_falhar=False)
         return True
 
-    def executar_acao(self, destino: EntidadeLogistica) -> None:
-        """Transfere a posse do lote para outra entidade logística."""
-        # Aqui você pode implementar a lógica de transferência de custódia
+    def executar_acao(self) -> None:
         try:
-            self.lote_envolvido.proprietario_atual = destino.nome_razao_social
+            self.lote_envolvido.proprietario_atual = self.destino.nome_razao_social
+            print(f"Evento de Transferência: Lote {self.lote_envolvido.id_lote} agora pertence a {self.destino.nome_razao_social}.")
         except Exception as e:
-            print(f"❌ [ERRO] Erro ao transferir o lote {self.lote_envolvido.id_lote}: {e}")
-        print(f"Evento de Transferência registrado para o lote {self.lote_envolvido.id_lote}.")
+            print(f"❌ [ERRO] Erro ao transferir: {e}")
 
 class EventoFracionamento(EventoLogistico):
-    pass
+    def validar_regras(self) -> bool:
+        return True
+    def executar_acao(self) -> None:
+        print(f"Evento de Fracionamento executado no lote {self.lote_envolvido.id_lote}.")
 
 class EventoProcessamento(EventoLogistico):
-    pass
+    def validar_regras(self) -> bool:
+        return True
+    def executar_acao(self) -> None:
+        print(f"Evento de Processamento executado no lote {self.lote_envolvido.id_lote}.")
 
 class EventoFinalizacao(EventoLogistico):
     def validar_regras(self) -> bool:

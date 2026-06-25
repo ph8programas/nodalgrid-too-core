@@ -1,0 +1,43 @@
+1. Linha do Tempo do Desenvolvimento e Evolução do Design
+
+Segunda-feira (22/06) — Mapeamento, Escopo e Adaptação de Estruturas de Dados
+
+Mapeamento de Escopo: 
+Iniciei o projeto mapeando as regras de conformidade da EUDR e revisando a literatura técnica. 
+Desenhei um escopo intencionalmente complexo e desafiador: múltiplas taxonomias de produtos (agrícolas, florestais, pecuários) e recipientes físicos estáticos e móveis. 
+Consolidei a visão de alto nível do sistema no arquivo early_schematics.pdf
+
+Tradução Lógica (C++ para Python): 
+Diante da necessidade de implementar um histórico imutável em memória, recorri aos conceitos de Estruturas de Dados aprendidos em C++. 
+Utilizei a lógica de uma lista encadeada com descritor, mas inverti o sentido dos ponteiros.
+
+Terça-feira (23/06) — Prototipagem e Esqueletos Iniciais
+Esboço das Classes: Dediquei este dia para codificar os esqueletos básicos de todo o ecossistema. 
+Estruturei a hierarquia de herança das entidades (Fazenda, Cooperativa, Transportadora) e ensaiei a aplicação de herança múltipla baseada em Mixins de comportamento (ComportamentoGranel e ComportamentoDiscreto) para os lotes e recipientes físicos.
+Estado de Rascunho: O código gerado era puramente estático, sem qualquer integração de persistência ou verificação dinâmica de integridade.
+
+Quarta-feira (24/06) — Interfaceamento, Desacoplamento e Escala para Grafo (DAG)
+
+O Gargalo do Acoplamento Circular: Ao tentar interligar o mundo físico das entidades com o registro digital da Blockchain, deparei-me com uma dependência circular crônica. 
+A Fazenda precisava instanciar o Evento, mas o Evento exigia a tipagem abstrata de EntidadeLogistica.
+
+A Injeção do Padrão Observer (Listeners): Utilizando a IA como parceira de design pattern, refatorei as entidades para implementar o padrão Observer.
+As entidades passaram a ser meras emissoras de sinais no mundo físico via notificar_listeners(). 
+Criei o ComplianceListener como o cérebro que captura esses sinais, consome a FabricaEventos (Factory Pattern) e empurra os registros para o Ledger, eliminando o acoplamento circular do sistema.
+
+Evolução Estrutural (Lista para Grafo / DAG):
+Percebi que a estrutura linear baseada em listas de C++ que herdei na segunda-feira era inútil para simular misturas físicas em silos agrícolas (balanço de massa).
+Com suporte analítico da IA, refatorei a classe Bloco para aceitar múltiplos ponteiros de origem (blocos_origem).
+O modelo linear tornou-se um Grafo Direcionado Acíclico (DAG),
+e implementei um algoritmo de busca em largura (BFS) no método rastrear_lote() para auditar a árvore genealógica de qualquer commodity misturada.
+
+Simplificação do Motor de Riscos:
+O módulo original de riscos (Riscos.py) era inflado e redundante.
+Reduzi o seu design a um validador determinístico centralizado (ValidadorRisco) que utiliza um dicionário estático de mapeamento de exceções customizadas para disparar erros em tempo de execução sem o uso de condicionais excessivas.
+
+Estado do Projeto na Pré-Entrega:
+As diferentes classes interagem entre si e a infraestrutura funciona, porem não está finalizada.
+faltando:
+caminho completo da fazenda ao porto
+expandir para cargas discretas, exemplo: boi, madeira
+implementar transformações, exemplo: soja -> óleo de soja

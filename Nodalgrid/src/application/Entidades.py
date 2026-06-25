@@ -37,9 +37,15 @@ class EntidadeLogistica(ABC):
         silo = next((s for s in self.silos if s.id_recipiente == id_silo), None)
         if not silo:
             raise ValueError(f"Silo com ID '{id_silo}' não encontrado na entidade '{self.nome_razao_social}'.")
+            
+        # Pega a lista de quem já está no silo ANTES da mistura ocorrer
+        lotes_anteriores = [str(id_l) for id_l in silo.historico_lotes]
+        
         silo.armazenar(lote)
         print(f"📦 [MUNDO FÍSICO] Lote {lote.id_lote} armazenado no Silo '{id_silo}' da entidade '{self.nome_razao_social}'.")
-        self.notificar_listeners("ARMAZENAMENTO", lote=lote, id_silo=id_silo)
+        
+        # Emite o evento de MISTURA passando os ancestrais!
+        self.notificar_listeners("ARMAZENAMENTO_MISTURA", lote=lote, id_silo=id_silo, ids_lotes_origem=lotes_anteriores)
 
     @abstractmethod
     def obter_papel_rede(self) -> str:
@@ -151,11 +157,16 @@ class Cooperativa(EntidadeIntermediária):
     def receber_carga(self, lote, index_silo: int = 0) -> None:
         if not self.silos:
             raise RuntimeError(f"A Cooperativa {self.nome_razao_social} não possui silos construídos.")
+            
+        silo_alvo = self.silos[index_silo]
+        lotes_anteriores = [str(id_l) for id_l in silo_alvo.historico_lotes]
+        
         print(f"🚛 [MUNDO FÍSICO] Cooperativa '{self.nome_razao_social}' recebeu o lote {lote.id_lote}.")
-        self.notificar_listeners("RECEBIMENTO", lote=lote, index_silo=index_silo)
         
         lote.proprietario_atual = self.nome_razao_social
-        self.silos[index_silo].armazenar(lote)
+        silo_alvo.armazenar(lote)
+        
+        self.notificar_listeners("ARMAZENAMENTO_MISTURA", lote=lote, id_silo=silo_alvo.id_recipiente, ids_lotes_origem=lotes_anteriores)
     
     def transferir_carga(self, lote, destino) -> None:
         lote.proprietario_atual = destino.nome_razao_social
