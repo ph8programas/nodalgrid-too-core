@@ -53,12 +53,59 @@ class CarregamentoContinuo:
             raise ValueError("Tentativa de descarregar volume maior do que o contido no veículo.")
             
         self.ocupacao_atual -= peso_a_remover
-        lote_contido.peso_atual -= peso_a_remover
+        lote_contido.peso_atual = peso_a_remover
         
         # Duck Typing: O recipiente não precisa importar a Entidade para saber 
         # que ela tem o método receber_carga. Ele confia que o objeto passado o tem.
         entidade_destino.receber_carga(lote_contido)
+        
+    def extrair_mistura_de_recipiente(self, entidade_origem: Any, recipiente_origem: Any, peso_a_movimentar: float, classe_produto: Any) -> Any:
+            """
+            O Caminhão extrai o produto diretamente do Recipiente Estacionário (Silo).
+            Gera uma fração transiente que herda o 'DNA' de todos os lotes misturados
+            e liga imediatamente essa operação à Blockchain através da Entidade de origem.
+            """
+            if peso_a_movimentar > recipiente_origem.ocupacao_atual:
+                raise ValueError(f"O {recipiente_origem.id_recipiente} não possui saldo suficiente.")
+                
+            recipiente_origem.ocupacao_atual -= peso_a_movimentar  # Diminui do saldo físico total do silo (Balanço de massa homogêneo)
+            self.ocupacao_atual += peso_a_movimentar # Incrementa a ocupação física do camião
+            
+            #Instancia o Lote Virtual de transporte
+            lote_mistura = classe_produto(
+                proprietario_atual=self.id_recipiente,
+                car_origem="MISTURA_Silos", 
+                peso_inicial=peso_a_movimentar
+            )
+            
+            # 4. Rastreabilidade de Procedência: Copia os UUIDs dos nós ancestrais do silo
+            if hasattr(recipiente_origem, 'historico_lotes'):
+                lote_mistura.ids_origem_mistura = list(recipiente_origem.historico_lotes)
+                
+            self.lotes_transportados.append(lote_mistura.id_lote) # ID do novo lote gerado automaticamente
 
+            # 5. Desacoplamento Criptográfico: A entidade legal assina e evoca o evento
+            entidade_origem.notificar_listeners(
+                "EXTRAÇÃO_MISTURA", 
+                lote=lote_mistura, 
+                ids_lotes_origem=lote_mistura.ids_origem_mistura,
+                quantidade=peso_a_movimentar
+            )
+                
+            return lote_mistura
+    
+    def descarregar_mistura(self, lote_fracao: Any, peso_a_remover: float, entidade_destino: Any) -> None:
+        """
+        Descarrega a fração contida no veículo na entidade logística de destino.
+        """
+        if peso_a_remover > self.ocupacao_atual:
+            raise ValueError("Tentativa de descarregar volume maior do que o contido no veículo.")
+            
+        self.ocupacao_atual -= peso_a_remover
+        lote_fracao.peso_atual = peso_a_remover
+        
+        # A entidade de destino processa o recebimento e o armazenamento no seu próprio silo
+        entidade_destino.receber_carga(lote_fracao)
 
 # =====================================================================
 # 3. COMPORTAMENTO PARA RECIPIENTES DISCRETOS (Curral, Caminhão Boiadeiro)

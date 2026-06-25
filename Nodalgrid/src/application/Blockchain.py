@@ -196,7 +196,18 @@ class ComplianceListener:
                     id_silo = kwargs.get("id_silo")
                     lotes_misturados = kwargs.get("ids_lotes_origem")
                     evento = FabricaEventos.criar_armazenamento(entidade, lote, id_silo)
-                    self.blockchain.adicionar_bloco(evento, ids_lotes_origem=lotes_misturados)                    
+                    self.blockchain.adicionar_bloco(evento, ids_lotes_origem=lotes_misturados)    
+                elif acao == "EXTRAÇÃO_MISTURA":
+                    lote_mistura = kwargs.get("lote")
+                    ids_origem = kwargs.get("ids_lotes_origem")
+                    qtd = kwargs.get("quantidade")
+                    
+                    # Invoca a Factory para criar o fracionamento do lote virtual (mistura)
+                    evento = FabricaEventos.criar_fracionamento(entidade, lote_mistura, lote_mistura, qtd)
+                    
+                    # Conecta o novo bloco à Blockchain, repassando o "DNA" dos lotes originais
+                    self.blockchain.adicionar_bloco(evento, ids_lotes_origem=ids_origem)
+                                    
                 elif acao == "TRANSFERENCIA":
                     destino = kwargs.get("destino")
                     evento = FabricaEventos.criar_transferencia(entidade, lote, destino)

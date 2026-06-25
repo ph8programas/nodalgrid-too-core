@@ -77,7 +77,7 @@ class EntidadeLogistica(ABC):
         self._armazens_proprios.append(novo_armazem)
         return novo_armazem
 
-    def criar_caminhao(self, id_caminhao: str, capacidad_toneladas: float) -> CaminhaoContinuo:
+    def criar_caminhao_continuo(self, id_caminhao: str, capacidad_toneladas: float) -> CaminhaoContinuo:
         novo_caminhao = CaminhaoContinuo(id_caminhao, capacidad_toneladas * 1000)
         self._caminhoes_graneleiros.append(novo_caminhao)
         return novo_caminhao

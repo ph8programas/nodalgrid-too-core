@@ -93,16 +93,28 @@ class EventoTransferencia(EventoLogistico):
             print(f"❌ [ERRO] Erro ao transferir: {e}")
 
 class EventoFracionamento(EventoLogistico):
+    # O nosso construtor próprio que aceita os 4 argumentos da Factory
+    def __init__(self, entidade_responsavel, lote_original, lote_extraido, qtd_extraida: float):
+        # O super() repassa apenas os argumentos que a classe MÃE exige!
+        super().__init__(entidade_responsavel, lote_extraido)
+        
+        # Guardamos os atributos específicos do fracionamento nesta classe filha
+        self.lote_original = lote_original
+        self.qtd_extraida = qtd_extraida
+
     def validar_regras(self) -> bool:
+        self.validador.validar(self, "logistico", deve_falhar=False)
         return True
+
     def executar_acao(self) -> None:
-        print(f"Evento de Fracionamento executado no lote {self.lote_envolvido.id_lote}.")
+        print(f"📦 [EVENTO BLOCKCHAIN] Fração de {self.qtd_extraida}kg extraída. Novo Lote gerado: {self.lote_envolvido.id_lote}")
+
 
 class EventoProcessamento(EventoLogistico):
     def validar_regras(self) -> bool:
         return True
     def executar_acao(self) -> None:
-        print(f"Evento de Processamento executado no lote {self.lote_envolvido.id_lote}.")
+        print(f"📦 [EVENTO BLOCKCHAIN] Fração de {self.qtd_extraida}kg extraída do Silo. Novo Lote gerado: {self.lote_envolvido.id_lote}")
 
 class EventoFinalizacao(EventoLogistico):
     def validar_regras(self) -> bool:

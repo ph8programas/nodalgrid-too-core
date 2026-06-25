@@ -41,7 +41,7 @@ class ValidadorRisco:
             else:
                 raise ValueError(f"Tipo de risco '{tipo_risco}' desconhecido.")
         
-        print(f"Validação {tipo_risco} concluída para o lote {evento.lote_envolvido.id_lote}. Sem riscos detectados.")
+        # print(f"Validação {tipo_risco} concluída para o lote {evento.lote_envolvido.id_lote}. Sem riscos detectados.")
         return True
     
 if __name__ == "__main__":

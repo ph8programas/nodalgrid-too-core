@@ -3,78 +3,68 @@ from application.Produtos import LoteSoja
 from application.Blockchain import Blockchain, ComplianceListener
 
 def main():
-    # 1. Setup: Instanciação única do Ledger (Blockchain)
-    # Nesse protótipo, a "blockchain" é essencialmente um descritor, nome mais correto seria "ledger" ou "registro imutável de eventos".
-    # Mas a ideia é que seja de fato implementeado como uma blockchain, com hash encadeado e validação de integridade. 
+    print("=== CONFIGURANDO O LEDGER E INFRAESTRUTURA NODALGRID ===")
+    
     mockchain = Blockchain()
     auditor_digital = ComplianceListener(mockchain)
     
-    mockchain.percorrer_historico()
-    
-    # 2. Setup: Instanciação das Entidades de Domínio
     fazenda_legal = Fazenda("Fazenda Progresso", "33.333.333/0001-22", "Lat:-15.5 Lon:-47.9", "CAR-GO-11111")
-    fazenda_legal.registrar_listener(auditor_digital)  # A Fazenda notifica o auditor digital sobre eventos de interesse,o mesmo para as demais entidades
-    fazenda_legal.criar_silo("SILO-001", 100)  # 100 toneladas
-    # Acessar o silo criado: por exemplo, usando a chave do silo no dicionário interno
-    # silo_001 = fazenda_legal.silos["SILO-001"]
-
-
-    fazenda_irregular = Fazenda("Fazenda Irregular", "44.444.444/0001-33", "Lat:-15.4 Lon:-47.6", "CAR-GO-22222")
-    fazenda_irregular.registrar_listener(auditor_digital)  
-    fazenda_irregular.criar_silo("SILO-002", 50)   
+    fazenda_legal.criar_silo("SILO-FAZ-001", capacidade_toneladas=100)
     
     coop_intermediaria = Cooperativa("Coop Central", "22.222.222/0001-88", "Lat:-15.6 Lon:-47.8")
-    coop_intermediaria.registrar_listener(auditor_digital)  
-    coop_intermediaria.criar_silo("SILO-COOP-001", 200) 
+    coop_intermediaria.criar_silo("SILO-COOP-001", capacidade_toneladas=200)
     
-    transportadora_intermediaria = Transportadora("Transportadora XYZ", "55.555.555/0001-44", "Lat:-15.8 Lon:-47.5")
-    transportadora_intermediaria.registrar_listener(auditor_digital)  
-    transportadora_intermediaria.criar_caminhao("CAMINHAO-001", 30) 
+    transportadora = Transportadora("Transportadora XYZ", "55.555.555/0001-44", "Lat:-15.8 Lon:-47.5")
+    caminhao_graneleiro = transportadora.criar_caminhao_continuo("CAMINHAO-GRANEL-01", capacidad_toneladas=30.0) 
     
-    porto_exportador = NodoAduaneiro("Porto de Exportação", "11.111.111/0001-99", "Lat:-15.7 Lon:-47.7")
-    porto_exportador.registrar_listener(auditor_digital) 
+    
+    # Conexão dos atores ao Listener da Blockchain
+    fazenda_legal.registrar_listener(auditor_digital)
+    coop_intermediaria.registrar_listener(auditor_digital)
+    transportadora.registrar_listener(auditor_digital)
 
-    # 3. Execução: Ciclo de Vida do Produto
-    # A Fazenda gera um Lote (Produto)
-    print("\n[AÇÃO FÍSICA 1] O Trator está colhendo o Lote A...")
-    soja_A = fazenda_legal.colher(LoteSoja, peso_kg=20000.0)
-    fazenda_legal.armazenar_em_silo("SILO-001", soja_A)
-    
-    print("\n--- RASTREABILIDADE DO LOTE A (DAG / GRAFO DE ORIGEM) ---")
-    grafo = mockchain.rastrear_lote(str(soja_A.id_lote))
-    import json
-    print(json.dumps(grafo, indent=2))
-    
-    print("\n--- HISTÓRICO DA BLOCKCHAIN ---")
-    mockchain.percorrer_historico(True)
-    
-    print("\n[AÇÃO FÍSICA 2] O Trator está colhendo o Lote B...")
-    soja_B = fazenda_legal.colher(LoteSoja, peso_kg=15000.0)
-    # AQUI OCORRE A MISTURA NO MESMO SILO:
-    fazenda_legal.armazenar_em_silo("SILO-001", soja_B)
-    
-    
-    print("\n[AÇÃO FÍSICA 2] O Trator está colhendo o Lote C...")
-    soja_C = fazenda_legal.colher(LoteSoja, peso_kg=5000.0)
-    # AQUI OCORRE A MISTURA NO MESMO SILO:
-    fazenda_legal.armazenar_em_silo("SILO-001", soja_C)
-    
-    print("\n--- RASTREABILIDADE DO LOTE C (DAG / GRAFO DE ORIGEM) ---")
-    grafo = mockchain.rastrear_lote(str(soja_C.id_lote))
-    import json
-    print(json.dumps(grafo, indent=2))
-        
-    print("\n--- HISTÓRICO DA BLOCKCHAIN ---")
-    mockchain.percorrer_historico(True)
-    
-    print(f"\nSilos da entidade {fazenda_legal.nome_razao_social}:")
-    for silo in fazenda_legal.silos:
-        print(silo.exibir_status())
-    
-    
-    
-    
+   # ---------------------------------------------------------------------
+    print("\n🌾 [PASSO 1] Colheita e MISTURA Homogênea no Silo da Fazenda")
+    lote1 = fazenda_legal.colher(LoteSoja, peso_kg=15000.0)
+    lote2 = fazenda_legal.colher(LoteSoja, peso_kg=20000.0)
+    lote3 = fazenda_legal.colher(LoteSoja, peso_kg=10000.0)
 
+    # Os 3 lotes entram no mesmo silo e misturam-se fisicamente
+    fazenda_legal.armazenar_em_silo("SILO-FAZ-001", lote1)
+    fazenda_legal.armazenar_em_silo("SILO-FAZ-001", lote2)
+    fazenda_legal.armazenar_em_silo("SILO-FAZ-001", lote3)
+    
+    silo_fazenda = fazenda_legal.silos[0]
+    print(f"-> Status do Silo da Fazenda: {silo_fazenda.exibir_status()}")
+
+    # ---------------------------------------------------------------------
+    print("\n🚛 [PASSO 2] Extração Física: Camião conecta-se ao Silo e evoca Fracionamento")
+    # O camião retira 25 toneladas diretamente do misturado do silo
+    lote_transporte = caminhao_graneleiro.extrair_mistura_de_recipiente(
+        entidade_origem=fazenda_legal, 
+        recipiente_origem=silo_fazenda, 
+        peso_a_movimentar=25000.0, 
+        classe_produto=LoteSoja
+    )
+    
+    print(f"-> Status do Silo da Fazenda PÓS-EXTRAÇÃO: {silo_fazenda.exibir_status()}")
+    print(f"-> Status do Camião Graneleiro: {caminhao_graneleiro.exibir_status()}")
+    print(f"-> DNA da Carga: Vinculado a {len(lote_transporte.ids_origem_mistura)} lotes ancestrais.")
+
+    # ---------------------------------------------------------------------
+    print("\n🛣️ [PASSO 3] Transporte Logístico e Descarga na Cooperativa")
+    caminhao_graneleiro.descarregar_mistura(
+        lote_fracao=lote_transporte, 
+        peso_a_remover=25000.0, 
+        entidade_destino=coop_intermediaria
+    )
+
+    print(f"-> Status do Silo da Cooperativa: {coop_intermediaria.silos[0].exibir_status()}")
+    print(f"-> Status do Camião Graneleiro pós-descarga: {caminhao_graneleiro.exibir_status()}")
+
+    # ---------------------------------------------------------------------
+    print("\n📜 [PASSO 4] Auditoria Geral do Livro-Razão (Ledger Criptográfico)")
+    mockchain.percorrer_historico(exibir_console=True)
 
 
 if __name__ == "__main__":
