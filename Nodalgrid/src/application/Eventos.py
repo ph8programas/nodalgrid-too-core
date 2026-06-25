@@ -2,9 +2,9 @@ from abc import ABC, abstractmethod
 import uuid
 from datetime import datetime
 
-from Produtos import LoteAgro
-from Entidades import EntidadeLogistica
-from Riscos import ValidadorRisco
+from application.Produtos import LoteAgro
+from application.Entidades import EntidadeLogistica
+from application.Riscos import ValidadorRisco
 
 # =====================================================================
 # 1. O CONTEXTO BASE (Abstração do Evento)
@@ -16,7 +16,7 @@ class EventoLogistico(ABC):
         self.entidade_responsavel = entidade_responsavel
         self.lote_envolvido = lote_envolvido
         self.selo_procedencia = lote_envolvido.selo_procedencia
-        self.assinatura_digital = entidade_responsavel.assinar_bloco_blockchain()
+        # self.assinatura_digital = entidade_responsavel.assinar_bloco_blockchain()
         self.validador = ValidadorRisco()
 
     @abstractmethod
@@ -60,6 +60,16 @@ class EventoColheita(EventoLogistico):
     def executar_acao(self) -> None:
         """A ação de colheita é apenas simbólica neste contexto."""
         print(f"Evento de Colheita registrado para o lote {self.lote_envolvido.id_lote}.")
+    
+class EventoArmazenamento(EventoLogistico):
+    def validar_regras(self) -> bool:
+        """Valida os riscos logísticos para o armazenamento do lote."""
+        self.validador.validar(self, "logistico", deve_falhar=False)
+        return True
+
+    def executar_acao(self, id_recipiente: str) -> None:
+        """Armazena o lote em um recipiente específico da entidade logística."""
+        pass
     
     
 

@@ -3,17 +3,15 @@ import hashlib
 import json
 from datetime import datetime
 from typing import Optional, List, Dict
-
-# Assumindo que a classe EventoLogistico abstrata está no caminho correto
-import Eventos as eventos
-# (Ajuste o import dependendo de onde você decidiu fixar o EventosBase.py)
+from application.Eventos import EventoLogistico
+from application.Factories import FabricaEventos 
 
 class Bloco:
     """
     O Nó da nossa lista encadeada reversa. 
-    Uma vez instanciado, seus atributos jamais devem ser alterados.
-    """
-    def __init__(self, evento: eventos.EventoLogistico, bloco_anterior: Optional['Bloco']):
+        Uma vez instanciado, seus atributos jamais devem ser alterados.
+        """
+    def __init__(self, evento: EventoLogistico, bloco_anterior: Optional['Bloco']):
         # 1. Payload Logístico (O Domínio)
         self.conteudo = evento
         
@@ -52,7 +50,7 @@ class Blockchain:
         self.ultimo: Optional[Bloco] = None
         self.tamanho: int = 0
 
-    def adicionar_bloco(self, evento: eventos.EventoLogistico) -> None:
+    def adicionar_bloco(self, evento: EventoLogistico) -> None:
         """
         Acopla um novo evento à corrente se, e somente se, ele passar na auditoria do domínio.
         """
@@ -122,31 +120,39 @@ class ComplianceListener:
         self.blockchain = blockchain
 
     def on_evento_logistico(self, entidade, acao: str, **kwargs):
-        
-        lote = kwargs.get("lote")
-        
-        print(f"📡 [LISTENER] Capturada ação '{acao}' da entidade '{entidade.nome_razao_social}'!")
-        
-        if acao == "COLHEITA":
-            # 1. O Listener cria o evento
-            evento = eventos.EventoColheita(entidade, lote)
+            lote = kwargs.get("lote")
             
-            # 2. Tenta adicionar à Blockchain (que cuidará da validação)
+            print(f"📡 [LISTENER] Capturada ação '{acao}' da entidade '{entidade.nome_razao_social}'!")
+            
             try:
-                self.blockchain.adicionar_bloco(evento)
+                # O Listener atua como o maestro, chamando a Factory correta baseada na ação
+                if acao == "COLHEITA":
+                    evento = FabricaEventos.criar_lote(entidade, lote)
+                    self.blockchain.adicionar_bloco(evento)
+                elif acao == "ARMAZENAMENTO":
+                    id_silo = kwargs.get("id_silo")
+                    evento = FabricaEventos.criar_armazenamento(lote, id_silo)
+                    self.blockchain.adicionar_bloco(evento)
+                    
+                elif acao == "TRANSFERENCIA":
+                    destino = kwargs.get("destino")
+                    evento = FabricaEventos.criar_transferencia(entidade, destino, lote)
+                    self.blockchain.adicionar_bloco(evento)
+                
+                elif acao == "FRACIONAMENTO":
+                    lote_extraido = kwargs.get("lote_extraido")
+                    qtd = kwargs.get("quantidade")
+                    evento = FabricaEventos.criar_fracionamento(entidade, lote, lote_extraido, qtd)
+                    self.blockchain.adicionar_bloco(evento)
+                    
+                elif acao == "PROCESSAMENTO":
+                    evento = FabricaEventos.criar_processamento(entidade, lote)
+                    self.blockchain.adicionar_bloco(evento)
+                    
+                elif acao == "FINALIZACAO":
+                    evento = FabricaEventos.criar_finalizacao(entidade, lote)
+                    self.blockchain.adicionar_bloco(evento)
+                    
             except ValueError as e:
-                print(f"❌ [ERRO COMPLIANCE] {e}")
-        if acao == "TRANSFERENCIA":
-            destino = kwargs.get("destino")
-            evento = eventos.EventoTransferencia(entidade, lote, destino)
-            try:
-                self.blockchain.adicionar_bloco(evento)
-            except ValueError as e:
-                print(f"❌ [ERRO COMPLIANCE] {e}")
-        
-        if acao == "FINALIZACAO":
-            evento = eventos.EventoFinalizacao(entidade, lote)
-            try:
-                self.blockchain.adicionar_bloco(evento)
-            except ValueError as e:
+                # Se o validador dentro de adicionar_bloco barrar, o erro é capturado aqui
                 print(f"❌ [ERRO COMPLIANCE] {e}")
