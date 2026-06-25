@@ -17,13 +17,16 @@ class EventoLogistico(ABC):
         self.lote_envolvido = lote_envolvido
         self.selo_procedencia = lote_envolvido.selo_procedencia
         self.assinatura_digital = entidade_responsavel.assinar_bloco_blockchain()
-        
-        # Instância única do validador centralizado
         self.validador = ValidadorRisco()
 
     @abstractmethod
     def validar_regras(self) -> bool:
         """As classes filhas definem quais riscos validar neste evento."""
+        pass
+    
+    @abstractmethod
+    def executar_acao(self) -> None:
+        """As classes filhas implementam a ação específica do evento."""
         pass
 
     def resumir_evento(self) -> dict:
@@ -47,35 +50,53 @@ class EventoLogistico(ABC):
 # 2. CLASSES CONCRETAS (Implementação do novo modelo)
 # =====================================================================
 
-class EventoColheitaGenesis(EventoLogistico):
+class EventoColheita(EventoLogistico):
     def validar_regras(self) -> bool:
-        # Passando o booleano 'True' (deve_falhar) para simular fracasso
-        self.validador.validar(self, "ambiental", deve_falhar=True, mensagem="Desmatamento detectado")
-        self.validador.validar(self, "ambiental", deve_falhar=True, mensagem="Embargo IBAMA")
-        self.validador.validar(self, "social", deve_falhar=True, mensagem="Trabalho Escravo")
+        """Valida os riscos ambientais, sociais e logísticos para a colheita."""
+        self.validador.validar(self, "ambiental", deve_falhar=False)
+        self.validador.validar(self, "social", deve_falhar=False)
+        self.validador.validar(self, "logistico", deve_falhar=False)
+        return True
+    def executar_acao(self) -> None:
+        """A ação de colheita é apenas simbólica neste contexto."""
+        print(f"Evento de Colheita registrado para o lote {self.lote_envolvido.id_lote}.")
+    
+    
+
+class EventoTransferencia(EventoLogistico):
+    def validar_regras(self) -> bool:
+        """Valida os riscos logísticos para a transferência de custódia."""
+        self.validador.validar(self, "logistico", deve_falhar=False)
         return True
 
-class EventoTransferenciaCustodia(EventoLogistico):
-    def validar_regras(self) -> bool:
-        self.validador.validar(self, "logistico", deve_falhar=True, mensagem="Fraude de Origem")
-        self.validador.validar(self, "logistico", deve_falhar=True, mensagem="Silo Contaminado")
-        return True
+    def executar_acao(self, destino: EntidadeLogistica) -> None:
+        """Transfere a posse do lote para outra entidade logística."""
+        # Aqui você pode implementar a lógica de transferência de custódia
+        try:
+            self.lote_envolvido.proprietario_atual = destino.nome_razao_social
+        except Exception as e:
+            print(f"❌ [ERRO] Erro ao transferir o lote {self.lote_envolvido.id_lote}: {e}")
+        print(f"Evento de Transferência registrado para o lote {self.lote_envolvido.id_lote}.")
 
 class EventoFracionamento(EventoLogistico):
-    def __init__(self, entidade, original, extraido, qtd):
-        super().__init__(entidade, original)
-        self.lote_extraido = extraido
-        self.quantidade_movimentada = qtd
+    pass
 
+class EventoProcessamento(EventoLogistico):
+    pass
+
+class EventoFinalizacao(EventoLogistico):
     def validar_regras(self) -> bool:
-        self.validador.validar(self, "logistico", deve_falhar=True, mensagem="Fraude na Balança")
-        self.validador.validar(self, "logistico", deve_falhar=True, mensagem="Silo Contaminado")
+        """Valida os riscos logísticos para a finalização do lote."""
+        self.validador.validar(self, "logistico", deve_falhar=False)
+        self.validador.validar(self, "ambiental", deve_falhar=False)
+        self.validador.validar(self, "social", deve_falhar=False)
         return True
+    def executar_acao(self) -> None:
+        """Marca o lote como finalizado e pronto para consumo ou exportação."""
+        print(f"Evento de Finalização registrado para o lote {self.lote_envolvido.id_lote}.")
+        ## Logica de finalização do lote, como atualizar status, notificar entidades, etc.
 
-# O exemplo de uso no if __name__ == "__main__" agora deve chamar 
-# evento.validar_regras() em vez de evento.validar_integridade()
-# =====================================================================
-# PLAYGROUND DE INTEGRAÇÃO (Garantindo o funcionamento do Namespace)
+
 # =====================================================================
 if __name__ == "__main__":
     from Entidades import Fazenda
@@ -92,7 +113,7 @@ if __name__ == "__main__":
     )
     soja_legal = LoteSoja(fazenda_legal.nome_razao_social, fazenda_legal.car_registro, peso_inicial=50000)
     
-    evento_colheita = EventoColheitaGenesis(fazenda_legal, soja_legal)
+    evento_colheita = EventoColheita(fazenda_legal, soja_legal)
     
     # Executa a validação em cadeia de todas as estratégias injetadas via rsc
     if evento_colheita.validar_regras():

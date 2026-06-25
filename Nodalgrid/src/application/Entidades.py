@@ -16,9 +16,20 @@ class EntidadeLogistica(ABC):
         self.nome_razao_social = nome_razao_social
         self.documento_cnpj_cpf = documento_cnpj_cpf
         self.coordenadas_gps = coordenadas_gps
+        
+        # NOVO: A lista de 'ouvintes' (Listeners) inscritos nesta entidade
+        self._listeners = [] 
+
+    def registrar_listener(self, listener):
+        """Adiciona um observador (ex: Blockchain/Compliance) à entidade."""
+        self._listeners.append(listener)
+
+    def notificar_listeners(self, acao: str, **kwargs):
+        """Dispara a notificação para todos os ouvintes registrados."""
+        for listener in self._listeners:
+            listener.on_evento_logistico(self, acao, **kwargs)
 
     def assinar_bloco_blockchain(self) -> str:
-        """Método concreto herdado por todos para carimbar autoria nos eventos."""
         return f"ASSINATURA_{self.documento_cnpj_cpf}_{uuid.uuid4().hex[:8]}"
 
     @abstractmethod
@@ -26,25 +37,37 @@ class EntidadeLogistica(ABC):
         pass
 
 
+
 # =====================================================================
 # 2. PAPÉIS COMPORTAMENTAIS (O que a Entidade faz com o Produto)
 # =====================================================================
 class EntidadeCriadora(EntidadeLogistica, ABC):
     @abstractmethod
-    def gerar_lote_genesis(self, *args, **kwargs):
+    def gerar_lote(self, *args, **kwargs):
         """Apenas quem herda desta classe pode dar à luz a um produto no sistema."""
         pass
 
 class EntidadeIntermediária(EntidadeLogistica, ABC):
     @abstractmethod
-    def receber_carga(self, lote) -> None:
-        """Recebe a posse de um lote, mas não pode alterar sua natureza biológica."""
+    def transferir_carga(self, lote, destino) -> None:
+        """Transfere a posse de um lote para outro operador logístico."""
         pass
-    
+    @abstractmethod
+    def receber_carga(self, lote, index_silo: int = 0) -> None:
+        """Recebe a posse de um lote de outro operador logístico."""
+        pass
 class EntidadeTransformadora(EntidadeLogistica, ABC):
     @abstractmethod
     def processar_lote(self, lote) -> Any:
         """Transforma o lote em outro produto, alterando suas características."""
+        pass
+    @abstractmethod
+    def transferir_carga(self, lote, destino) -> None:
+        """Transfere a posse de um lote para outro operador logístico."""
+        pass
+    @abstractmethod
+    def receber_carga(self, lote, index_silo: int = 0) -> None:
+        """Recebe a posse de um lote de outro operador logístico."""
         pass
     
 class EntidadeFinalizadora(EntidadeLogistica, ABC):
@@ -72,14 +95,25 @@ class Fazenda(EntidadeCriadora):
         self.silos_proprios.append(novo_silo)
         return novo_silo
 
-    def gerar_lote_genesis(self, classe_produto, peso_kg: float):
-        """Instancia a classe de produto injetando o CAR da fazenda."""
-        novo_lote = classe_produto(
-            proprietario_atual=self.nome_razao_social, 
-            car_origem=self.car_registro, 
-            peso_inicial=peso_kg
-        )
-        return novo_lote
+    def colher(self, classe_produto, peso_kg: float):
+            """Ação do mundo físico: Instancia o produto e notifica os ouvintes."""
+            novo_lote = classe_produto(
+                proprietario_atual=self.nome_razao_social, 
+                car_origem=self.car_registro, 
+                peso_inicial=peso_kg
+            )
+            print(f"🌾 [MUNDO FÍSICO] Fazenda '{self.nome_razao_social}' colheu {peso_kg}kg.")
+            
+            # A MÁGICA ACONTECE AQUI: A fazenda avisa que colheu, passando o lote criado.
+            self.notificar_listeners("COLHEITA", lote=novo_lote)
+            
+            return novo_lote    
+        
+    def gerar_lote(self, classe_produto, peso_kg: float):
+        self.colher(classe_produto, peso_kg)
+        
+        
+
 
 class Cooperativa(EntidadeIntermediária):
     """Operador Logístico Intermediário. Agrupa silos gigantes para balanço de massa."""
@@ -99,9 +133,18 @@ class Cooperativa(EntidadeIntermediária):
     def receber_carga(self, lote, index_silo: int = 0) -> None:
         if not self.bateria_de_silos:
             raise RuntimeError(f"A Cooperativa {self.nome_razao_social} não possui silos construídos.")
+        print(f"🚛 [MUNDO FÍSICO] Cooperativa '{self.nome_razao_social}' recebeu o lote {lote.id_lote}.")
+        self.notificar_listeners("RECEBIMENTO", lote=lote, index_silo=index_silo)
         
         lote.proprietario_atual = self.nome_razao_social
         self.bateria_de_silos[index_silo].armazenar(lote)
+    
+    def transferir_carga(self, lote, destino) -> None:
+        lote.proprietario_atual = destino.nome_razao_social
+        print(f"🚛 [MUNDO FÍSICO] Cooperativa '{self.nome_razao_social}' transferiu o lote {lote.id_lote} para '{destino.nome_razao_social}'.")
+        
+        # Notifica os ouvintes sobre a transferência
+        self.notificar_listeners("TRANSFERENCIA", lote=lote, destino=destino)
 
 class Transportadora(EntidadeIntermediária):
     """Operador Logístico Intermediário. Transporta lotes entre silos e armazéns."""
@@ -113,9 +156,21 @@ class Transportadora(EntidadeIntermediária):
     def obter_papel_rede(self) -> str:
         return "CUSTODIANTE_INTERMEDIARIO"
 
-    def receber_carga(self, lote) -> None:
-        """Transportadora apenas muda a posse do lote, não altera sua natureza."""
+    def receber_carga(self, lote, index_silo: int = 0) -> None:
+        if not self.caminhoes_graneleiros and not self.caminhoes_discretos:
+            raise RuntimeError(f"A Transportadora {self.nome_razao_social} não possui caminhões disponíveis.")
+        print(f"🚛 [MUNDO FÍSICO] Transportadora '{self.nome_razao_social}' recebeu o lote {lote.id_lote}.")
+        self.notificar_listeners("RECEBIMENTO", lote=lote, index_silo=index_silo)
+        
         lote.proprietario_atual = self.nome_razao_social
+        ## self.caminhoes_graneleiros[index_silo].armazenar(lote)
+    
+    def transferir_carga(self, lote, destino) -> None:
+        lote.proprietario_atual = destino.nome_razao_social
+        print(f"🚛 [MUNDO FÍSICO] Transportadora '{self.nome_razao_social}' transferiu o lote {lote.id_lote} para '{destino.nome_razao_social}'.")
+        
+        # Notifica os ouvintes sobre a transferência
+        self.notificar_listeners("TRANSFERENCIA", lote=lote, destino=destino)
 
 class NodoAduaneiro(EntidadeFinalizadora):
     class TipoModal(Enum):
@@ -135,6 +190,10 @@ class NodoAduaneiro(EntidadeFinalizadora):
             raise ValueError(f"Exportação Bloqueada no {self.modal.value}: Lote violou regras de desmatamento.")
         print(f"Carga liberada no {self.modal.value} {self.nome_razao_social}. Certificado EUDR emitido.")
         return True
+    def finalizar_lote(self, lote) -> None:
+        lote.proprietario_atual = self.nome_razao_social
+        print(f"🚛 [MUNDO FÍSICO] Nodo Aduaneiro '{self.nome_razao_social}' finalizou o lote {lote.id_lote}.")
+        self.notificar_listeners("FINALIZACAO", lote=lote)
 
 class MercadoInterno(EntidadeFinalizadora):
     def __init__(self, nome: str, cnpj: str, gps: str):
@@ -142,6 +201,10 @@ class MercadoInterno(EntidadeFinalizadora):
 
     def obter_papel_rede(self) -> str:
         return "MERCADO_INTERNO"
+    def finalizar_lote(self, lote) -> None:
+        lote.proprietario_atual = self.nome_razao_social
+        print(f"🚛 [MUNDO FÍSICO] Mercado Interno '{self.nome_razao_social}' finalizou o lote {lote.id_lote}.")
+        self.notificar_listeners("FINALIZACAO", lote=lote)
 
 # =====================================================================
 # ÁREA DE TESTES (Playground de Integração)
@@ -165,7 +228,7 @@ if __name__ == "__main__":
     silo_coop = coop_passo_fundo.construir_silo("SILO-COOP-99", capacidade_toneladas=5000)
     
     print(f"\n[AÇÃO] A Fazenda {fazenda_esperanca.nome_razao_social} colheu soja...")
-    lote_colheita = fazenda_esperanca.gerar_lote_genesis(MockLoteSoja, peso_kg=40000.0)
+    lote_colheita = fazenda_esperanca.gerar_lote(MockLoteSoja, peso_kg=40000.0)
     
     silo_fazenda.armazenar(lote_colheita)
     print("Status Silo Fazenda:", silo_fazenda.exibir_status())

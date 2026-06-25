@@ -52,6 +52,15 @@ class ProdutoAgricola(LoteAgro, ABC):
 
     def obter_macro_categoria(self) -> str:
         return "PRODUTOS_AGRICOLAS"
+    
+    def mostrar_detalhes(self) -> dict:
+        return {
+            "id_lote": str(self.id_lote),
+            "categoria": self.obter_macro_categoria(),
+            "proprietario": self.proprietario_atual,
+            "car_fazenda": self.car_origem,
+            "selo_procedencia": self.selo_procedencia
+        }
 
 class ProdutoPecuario(LoteAgro, ABC):
     def __init__(self, proprietario_atual: str, gta_origem: str):
@@ -60,6 +69,15 @@ class ProdutoPecuario(LoteAgro, ABC):
 
     def obter_macro_categoria(self) -> str:
         return "PRODUTOS_PECUARIOS"
+    
+    def mostrar_detalhes(self) -> dict:
+        return {
+            "id_lote": str(self.id_lote),
+            "categoria": self.obter_macro_categoria(),
+            "proprietario": self.proprietario_atual,
+            "gta_origem": self.gta_origem,
+            "selo_procedencia": self.selo_procedencia
+        }
 
 class ProdutoFlorestal(LoteAgro, ABC):
     def __init__(self, proprietario_atual: str, dof_origem: str):
@@ -68,6 +86,15 @@ class ProdutoFlorestal(LoteAgro, ABC):
 
     def obter_macro_categoria(self) -> str:
         return "PRODUTOS_FLORESTAIS"
+    
+    def mostrar_detalhes(self) -> dict:
+        return {
+            "id_lote": str(self.id_lote),
+            "categoria": self.obter_macro_categoria(),
+            "proprietario": self.proprietario_atual,
+            "dof_origem": self.dof_origem,
+            "selo_procedencia": self.selo_procedencia
+        }
 
 
 # =====================================================================
